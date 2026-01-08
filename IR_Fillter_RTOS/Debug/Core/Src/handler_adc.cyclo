@@ -1,0 +1,6 @@
+../Core/Src/handler_adc.c:9:5:compare	1
+../Core/Src/handler_adc.c:14:13:swap_uint16	1
+../Core/Src/handler_adc.c:22:12:partition_uint16	3
+../Core/Src/handler_adc.c:40:13:quickSort_uint16	2
+../Core/Src/handler_adc.c:52:6:quickSortArray_uint16	1
+../Core/Src/handler_adc.c:56:10:Average_Caculate	4

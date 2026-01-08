@@ -1,0 +1,2 @@
+../Core/Src/handler_flash.c:9:6:Flash_Write_Array_U16	2
+../Core/Src/handler_flash.c:35:10:Flash_Read_U16	1
