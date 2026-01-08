@@ -31,6 +31,11 @@ ButtonState_t BUTTON_Read(Button_name_t *Button)
     	Button->timePress++;
     	Button->isPress = 1;
     	Delay_ms(1);
+    	if (Button->timePress == SIGNLE_CLICK_TIME)
+		{
+			Button->State = LONGCLICK_3S;
+			return Button->State;
+		}
     }
     if(Button->isPress)
     {
@@ -42,21 +47,16 @@ ButtonState_t BUTTON_Read(Button_name_t *Button)
     		{
     			if(Button->timePress > DEBOUND_TIME && Button->timePress < SIGNLE_CLICK_TIME)
     			{
-    				Button->isPress = 0;
-    				Button->timePress = 0;
-    				Button->timeDouble = 0;
     				Button->State = SINGLE_CLICK;
-    				return Button->State;
-
     			}
     			else if(Button->timePress > SIGNLE_CLICK_TIME)
     			{
-    				Button->isPress = 0;
-					Button->timePress = 0;
-					Button->timeDouble = 0;
-					Button->State = LONGCLICK_3S;
-					return Button->State;
+//					Button->State = LONGCLICK_3S;
     			}
+    			Button->isPress = 0;
+				Button->timePress = 0;
+				Button->timeDouble = 0;
+				return Button->State;
     		}
     	}
     	while(Button_Read_Pin(Button) == NHAN)
