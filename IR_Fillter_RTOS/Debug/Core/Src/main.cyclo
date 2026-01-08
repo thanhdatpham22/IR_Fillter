@@ -15,5 +15,5 @@
 ../Core/Src/main.c:744:6:StartDefaultTask	1
 ../Core/Src/main.c:762:6:StartTask_Button	17
 ../Core/Src/main.c:852:6:StartTask_Test_IR	5
-../Core/Src/main.c:911:6:StartTask_ADC	6
-../Core/Src/main.c:972:6:Error_Handler	1
+../Core/Src/main.c:911:6:StartTask_ADC	7
+../Core/Src/main.c:983:6:Error_Handler	1

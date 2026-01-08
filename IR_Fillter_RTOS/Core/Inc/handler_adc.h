@@ -26,7 +26,8 @@ typedef enum{
 	REAL_PR_OK =0,
 	REAL_PR_NG,
 	NO_PRODUCT,
-	FIRT_SAMPLE
+	FIRT_SAMPLE,
+	WRONG_SAMPLE
 }REAL_VALUE;
 
 int compare(const void *a, const void *b);

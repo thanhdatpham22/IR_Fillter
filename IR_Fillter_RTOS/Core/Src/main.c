@@ -929,6 +929,7 @@ void StartTask_ADC(void const * argument)
 				  GPIOB->ODR |=  (1 << 13U);
 				  osMutexWait(myMutex02Handle, portMAX_DELAY);
 				  GPIOA->ODR |=  (1 << 8U);
+
 				  product_value = REAL_PR_NG;
 				  osMutexRelease(led_lockHandle);
 				  osMutexRelease(myMutex02Handle);
@@ -941,6 +942,16 @@ void StartTask_ADC(void const * argument)
 				  product_value = REAL_PR_OK;
 				  osMutexRelease(led_lockHandle);
 			  }
+		  }
+		  else if((adc_read_ok - adc_read_ng) > 100)
+		  {
+			  osMutexWait(led_lockHandle, portMAX_DELAY);
+			  product_value = FIRT_SAMPLE;
+			  GPIOB->ODR ^=  (1 << 12U);
+			  GPIOB->ODR ^=  (1 << 13U);
+			  osDelay(10);
+			  osMutexRelease(led_lockHandle);
+
 		  }
 		  else
 		  {
