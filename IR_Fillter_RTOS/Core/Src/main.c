@@ -67,6 +67,7 @@ osThreadId Task_ButtonHandle;
 osThreadId Task_Test_IRHandle;
 osThreadId Task_ADCHandle;
 osMessageQId button_mesHandle;
+osTimerId timer_buzzerHandle;
 osMutexId led_lockHandle;
 osMutexId myMutex02Handle;
 /* USER CODE BEGIN PV */
@@ -89,6 +90,7 @@ void StartDefaultTask(void const * argument);
 void StartTask_Button(void const * argument);
 void StartTask_Test_IR(void const * argument);
 void StartTask_ADC(void const * argument);
+void Callback_TimerSoft(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -98,18 +100,17 @@ void StartTask_ADC(void const * argument);
 /* USER CODE BEGIN 0 */
 volatile uint32_t timer1_counter = 0;
 volatile uint16_t adc_val[ADC_CH_NUM] = {0};
-uint16_t adc_tag[ADC_CH_NUM] = {0};
-
-uint16_t adc_read_ok;
-uint16_t adc_read_ng;
-adc_caculate_t adc_caculate = {0};
+uint16_t adc_tag[2] = {0};
+Sammple_t sample = {0};
+static adc_caculate_t adc_caculate = {0};
+static uint16_t sample_count = 0;
 
 
 Button_name_t Button_ok;
 Button_name_t Button_ng;
 
-static uint16_t sample_count = 0;
 REAL_VALUE product_value;
+
 
 /* USER CODE END 0 */
 
@@ -184,7 +185,13 @@ int main(void)
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
 
+  /* Create the timer(s) */
+  /* definition and creation of timer_buzzer */
+  osTimerDef(timer_buzzer, Callback_TimerSoft);
+  timer_buzzerHandle = osTimerCreate(osTimer(timer_buzzer), osTimerPeriodic, NULL);
+
   /* USER CODE BEGIN RTOS_TIMERS */
+//  osTimerStart(timer_buzzerHandle, 1000);
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
 
@@ -211,7 +218,7 @@ int main(void)
   Task_Test_IRHandle = osThreadCreate(osThread(Task_Test_IR), NULL);
 
   /* definition and creation of Task_ADC */
-  osThreadDef(Task_ADC, StartTask_ADC, osPriorityLow, 0, 256);
+  osThreadDef(Task_ADC, StartTask_ADC, osPriorityLow, 0, 512);
   Task_ADCHandle = osThreadCreate(osThread(Task_ADC), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
@@ -530,9 +537,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 0;
+  htim2.Init.Prescaler = 72-1;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 65535;
+  htim2.Init.Period = 100-1;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -748,6 +755,8 @@ void StartDefaultTask(void const * argument)
   for(;;)
   {
 	  osDelay(1);
+//	  HAL_UART_Transmit(&huart1, (uint16_t*)adc_val, 4, 1000);
+//	  Delay_ms(100);
   }
   /* USER CODE END 5 */
 }
@@ -769,6 +778,7 @@ void StartTask_Button(void const * argument)
 #if 1
 	  ButtonState_t state;
 	  state = BUTTON_Read(&Button_ok);
+
 	  switch(state)
 	  {
 	  	  case SINGLE_CLICK:
@@ -776,6 +786,7 @@ void StartTask_Button(void const * argument)
 	  	  case DOUBLE_CLICK:
 				break;
 	  	  case LONGCLICK_3S:
+	  		osTimerStop(timer_buzzerHandle);
 	  		  if(product_value == REAL_PR_OK || product_value == FIRT_SAMPLE)
 	  		  {
 	  			msg = BTN_OK;
@@ -790,19 +801,21 @@ void StartTask_Button(void const * argument)
 	  		  }
 	  		  else
 	  		  {
-	  			osMutexWait(myMutex02Handle, portMAX_DELAY);
+//	  			osMutexWait(myMutex02Handle, portMAX_DELAY);
+	  			GPIOA->ODR &=  ~(1 << 8U);
 	  			for(int i = 0; i < 20; i++)
 				 {
 	  				GPIOA->ODR ^=  (1 << 8U);
 					Delay_ms(70);
 				 }
-	  			osMutexRelease(myMutex02Handle);
+//	  			osMutexRelease(myMutex02Handle);
 	  		  }
 	  		break;
 	  	  default:
 	  		  break;
 	  }
 	  state = BUTTON_Read(&Button_ng);
+
 	  switch(state)
 	  {
 		  case SINGLE_CLICK:
@@ -810,13 +823,16 @@ void StartTask_Button(void const * argument)
 		  case DOUBLE_CLICK:
 				break;
 		  case LONGCLICK_3S:
+			  	  osTimerStop(timer_buzzerHandle);
 				  if(product_value == REAL_PR_NG ||  product_value == FIRT_SAMPLE)
 				  {
 					  msg = BTN_NG;
 					  xQueueSend(button_mesHandle, &msg, portMAX_DELAY);
 					  osMutexWait(led_lockHandle, portMAX_DELAY);
+					  GPIOA->ODR &=  ~(1 << 8U);
 					 for(int i = 0; i < 20; i++)
 					 {
+
 						 GPIOB->ODR ^=  (1 << 13U);
 						Delay_ms(70);
 					 }
@@ -824,13 +840,14 @@ void StartTask_Button(void const * argument)
 				  }
 				  else
 				  {
-					osMutexWait(myMutex02Handle, portMAX_DELAY);
+//					osMutexWait(myMutex02Handle, portMAX_DELAY);
+					 GPIOA->ODR &=  ~(1 << 8U);
 					for(int i = 0; i < 20; i++)
 					 {
 						GPIOA->ODR ^=  (1 << 8U);
 						Delay_ms(70);
 					 }
-					osMutexRelease(myMutex02Handle);
+//					osMutexRelease(myMutex02Handle);
 
 				  }
 			break;
@@ -853,13 +870,13 @@ void StartTask_Test_IR(void const * argument)
 {
   /* USER CODE BEGIN StartTask_Test_IR */
 	uint8_t msg;
+
   /* Infinite loop */
   for(;;)
   {
 #if 1
 	  if (xQueueReceive(button_mesHandle, &msg, portMAX_DELAY) == pdPASS)
 	  {
-	//	  ulTaskNotifyTake( pdTRUE, portMAX_DELAY );
 		  sample_count = 0;
 		  adc_caculate = (adc_caculate_t){0};
 		  while(sample_count < ADC_SAMPLE_COUNT)
@@ -867,29 +884,23 @@ void StartTask_Test_IR(void const * argument)
 			  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_val, ADC_CH_NUM);
 			  ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 			  HAL_ADC_Stop_DMA(&hadc1);
-			  adc_caculate.adc_in0[sample_count] = adc_val[0];
 			  adc_caculate.adc_in1[sample_count] = adc_val[1];
 			  adc_caculate.adc_in2[sample_count] = adc_val[2];
-			  adc_caculate.adc_in3[sample_count] = adc_val[3];
 			  sample_count++;
 		  }
-		  quickSortArray_uint16(adc_caculate.adc_in0, ADC_SAMPLE_COUNT);
-		  quickSortArray_uint16(adc_caculate.adc_in1, ADC_SAMPLE_COUNT);
-		  quickSortArray_uint16(adc_caculate.adc_in2, ADC_SAMPLE_COUNT);
-		  quickSortArray_uint16(adc_caculate.adc_in3, ADC_SAMPLE_COUNT);
-
-		  adc_tag[0] = Average_Caculate((uint16_t*)adc_caculate.adc_in0, ADC_SAMPLE_COUNT,SKIP_VALUE);
-		  adc_tag[1] = Average_Caculate((uint16_t*)adc_caculate.adc_in1, ADC_SAMPLE_COUNT,SKIP_VALUE);
-		  adc_tag[2] = Average_Caculate((uint16_t*)adc_caculate.adc_in2, ADC_SAMPLE_COUNT,SKIP_VALUE);
-		  adc_tag[3] = Average_Caculate((uint16_t*)adc_caculate.adc_in3, ADC_SAMPLE_COUNT,SKIP_VALUE);
-
+//		  quickSortArray_uint16(adc_caculate.adc_in1, ADC_SAMPLE_COUNT);
+//		  quickSortArray_uint16(adc_caculate.adc_in2, ADC_SAMPLE_COUNT);
+//		  adc_tag[0] = Average_Caculate((uint16_t*)adc_caculate.adc_in1, ADC_SAMPLE_COUNT,SKIP_VALUE);
+//		  adc_tag[1] = Average_Caculate((uint16_t*)adc_caculate.adc_in2, ADC_SAMPLE_COUNT,SKIP_VALUE);
+		  adc_tag[0] = MedianAverage(adc_caculate.adc_in1, ADC_SAMPLE_COUNT);
+		  adc_tag[1] = MedianAverage(adc_caculate.adc_in2, ADC_SAMPLE_COUNT);
 		  switch(msg)
 		  {
 		  	  case BTN_OK:
-		  		  Flash_Write_Array_U16(FLASH_ADDR_OK, adc_tag, 4);
+		  		  Flash_Write_Array_U16(FLASH_ADDR_OK, adc_tag, 2);
 				  break;
 		  	  case BTN_NG:
-		  		Flash_Write_Array_U16(FLASH_ADDR_NG, adc_tag, 4);
+		  		  Flash_Write_Array_U16(FLASH_ADDR_NG, adc_tag, 2);
 		  		  break;
 		  	  default:
 		  		  break;
@@ -911,39 +922,81 @@ void StartTask_Test_IR(void const * argument)
 void StartTask_ADC(void const * argument)
 {
   /* USER CODE BEGIN StartTask_ADC */
+	static uint8_t isNG_active = 0;
   /* Infinite loop */
   for(;;)
   {
 	  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_val, ADC_CH_NUM);
 #if 1
+//----------------------- Detected Product-------------------------
 	  if(adc_val[0] > DETECT_VALUE && adc_val[3] > DETECT_VALUE)
 	  {
-		  adc_read_ok = Flash_Read_U16(FLASH_ADDR_OK + 0x02);
-		  adc_read_ng = Flash_Read_U16(FLASH_ADDR_NG + 0x02);
-		  if((adc_read_ok != FLASH_EMPTY ) && (adc_read_ng != FLASH_EMPTY))
+//		  if(max<adc_val[1]) max=adc_val[1];
+//		  if(min>adc_val[1]) min=adc_val[1];
+		  sample.right.ok = Flash_Read_U16(FLASH_ADDR_OK);
+		  sample.left.ok = Flash_Read_U16(FLASH_ADDR_OK + 0x02);
+		  sample.right.ng = Flash_Read_U16(FLASH_ADDR_NG);
+		  sample.left.ng = Flash_Read_U16(FLASH_ADDR_NG + 0x02);
+//-----------------------//Not Erase CHip----------------------------
+		  if((sample.right.ok  != FLASH_EMPTY) &&
+				  (sample.left.ok   != FLASH_EMPTY) &&
+				  (sample.right.ng  != FLASH_EMPTY) &&
+				  (sample.left.ng   != FLASH_EMPTY))
 		  {
-			  if(adc_val[1] > ((adc_read_ok+adc_read_ng)/2)) // NG
-			  {
-				  osMutexWait(led_lockHandle, portMAX_DELAY);
-				  GPIOB->ODR &=  ~(1 << 12U);
-				  GPIOB->ODR |=  (1 << 13U);
-				  osMutexWait(myMutex02Handle, portMAX_DELAY);
-				  GPIOA->ODR |=  (1 << 8U);
-
-				  product_value = REAL_PR_NG;
-				  osMutexRelease(led_lockHandle);
-				  osMutexRelease(myMutex02Handle);
-			  }
-			  else // OK
+//----------------------OK PRODUCT---------------------------------------
+			  if((adc_val[1] < ((sample.right.ok +sample.right.ng)/2)) &&
+			     (adc_val[2] < ((sample.left.ok +sample.left.ng)/2)))
 			  {
 				  osMutexWait(led_lockHandle, portMAX_DELAY);
 				  GPIOB->ODR |=  (1 << 12U);
 				  GPIOB->ODR &=  ~(1 << 13U);
 				  product_value = REAL_PR_OK;
 				  osMutexRelease(led_lockHandle);
+				  if(isNG_active)
+				  {
+					  osTimerStop(timer_buzzerHandle);
+					  GPIOA->ODR &= ~(1 << 8U);
+					  isNG_active = 0;
+				  }
+			  }
+			  //----------------------NG PRODUCT---------------------------------------
+			  else
+			  {
+				  //----------------------NG PRODUCT JUST has left glass ---------------------------------------
+				  if((adc_val[1] > (sample.right.ok + sample.right.ng)/2) &&
+					 (adc_val[2] < (sample.left.ok +sample.left.ng)/2))
+				  {
+					  product_value = WRONG_SAMPLE;
+				  }
+				  //----------------------NG PRODUCT JUST has right glass ---------------------------------------
+				  else if((adc_val[1] < (sample.right.ok + sample.right.ng)/2) &&
+					 (adc_val[2] > (sample.left.ok +sample.left.ng)/2))
+				  {
+					  product_value = WRONG_SAMPLE;
+				  }
+
+				  else
+				  {
+					  product_value = REAL_PR_NG;
+				  }
+
+				  osMutexWait(led_lockHandle, portMAX_DELAY);
+				  GPIOB->ODR &=  ~(1 << 12U);
+				  GPIOB->ODR |=  (1 << 13U);
+				  osMutexRelease(led_lockHandle);
+
+				  if(!isNG_active)
+				 {
+					 osTimerStart(timer_buzzerHandle, 50);
+					 isNG_active = 1;
+				 }
+
+
 			  }
 		  }
-		  else if((adc_read_ok - adc_read_ng) > 100)
+		  //-----------------------Read sample wrong (Sample_Wrong)----------------------------
+		  else if(((sample.right.ok  - sample.right.ng) > 100) &&
+				  ((sample.left.ok  - sample.left.ng) > 100))
 		  {
 			  osMutexWait(led_lockHandle, portMAX_DELAY);
 			  product_value = FIRT_SAMPLE;
@@ -959,21 +1012,39 @@ void StartTask_ADC(void const * argument)
 		  }
 
 	  }
+	  //--------------- Empty Product-------------------------
 	  else
 	  {
 		  osMutexWait(led_lockHandle, portMAX_DELAY);
 		  GPIOB->ODR &=  ~(1 << 12U);
 		  GPIOB->ODR &=  ~(1 << 13U);
-		  osMutexWait(myMutex02Handle, portMAX_DELAY);
-		  GPIOA->ODR &=  ~(1 << 8U);
 		  product_value = NO_PRODUCT;
 		  osMutexRelease(led_lockHandle);
-		  osMutexRelease(myMutex02Handle);
+		  if(isNG_active)
+		  {
+			 osTimerStop(timer_buzzerHandle);
+			 GPIOA->ODR &= ~(1 << 8U);
+			 isNG_active = 0;
+		  }
 	  }
 
 #endif
   }
   /* USER CODE END StartTask_ADC */
+}
+
+/* Callback_TimerSoft function */
+void Callback_TimerSoft(void const * argument)
+{
+  /* USER CODE BEGIN Callback_TimerSoft */
+	static uint8_t buzzer_state = 0;
+	buzzer_state ^= 1;
+
+	if(buzzer_state)
+		GPIOA->ODR |=  (1 << 8U);   // BẬT còi
+	else
+		GPIOA->ODR &= ~(1 << 8U);   // TẮT còi
+  /* USER CODE END Callback_TimerSoft */
 }
 
 /**

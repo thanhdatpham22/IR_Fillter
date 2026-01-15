@@ -5,7 +5,7 @@
  *      Author: Admin
  */
 #include "handler_flash.h"
-
+#include "cmsis_os.h"
 void Flash_Write_Array_U16(uint32_t addr, volatile uint16_t *data, uint16_t len)
 {
     HAL_FLASH_Unlock();
@@ -17,7 +17,7 @@ void Flash_Write_Array_U16(uint32_t addr, volatile uint16_t *data, uint16_t len)
     erase.TypeErase   = FLASH_TYPEERASE_PAGES;
     erase.PageAddress = addr;
     erase.NbPages     = 1;
-
+    taskENTER_CRITICAL();
     HAL_FLASHEx_Erase(&erase, &pageError);
 
     /* Ghi từng phần tử */
@@ -27,7 +27,7 @@ void Flash_Write_Array_U16(uint32_t addr, volatile uint16_t *data, uint16_t len)
                           addr + i * 2,
                           data[i]);
     }
-
+    taskEXIT_CRITICAL();
     HAL_FLASH_Lock();
 }
 

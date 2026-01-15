@@ -28,6 +28,7 @@ ButtonState_t BUTTON_Read(Button_name_t *Button)
 	Button->State = NO_CLICK;
     while(Button_Read_Pin(Button) == NHAN)
     {
+    	GPIOA->ODR &=  ~(1 << 8U);
     	Button->timePress++;
     	Button->isPress = 1;
     	Delay_ms(1);
